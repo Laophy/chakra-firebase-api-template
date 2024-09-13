@@ -27,6 +27,9 @@ export const addUserByAuth = async firebaseUser => {
 			email: firebaseUser.email,
 			apiKey: firebaseUser.apiKey,
 			lastLoginAt: firebaseUser.lastLoginAt,
+			isStaff: false,
+			isHighStaff: false,
+			title: { title: '', color: '' },
 			balance: 0,
 		}
 		userModel.create(newUser)
@@ -38,13 +41,43 @@ export const addUserByAuth = async firebaseUser => {
 	return await userModel.find({ uid: firebaseUser.uid })
 }
 
+export const updateUserData = async (uid, newUserData) => {
+	const savedUserData = await userModel.find({ uid: uid })
+	if (savedUserData[0]) {
+		userModel
+			.findOneAndUpdate(
+				{ uid: uid },
+				{
+					username: newUserData.username,
+					photoURL: newUserData.photoURL,
+					email: newUserData.email,
+					title: newUserData.title,
+					balance: newUserData.balance,
+				}
+			)
+			.then(() => {
+				console.log('Updated user information')
+				return { code: 200, message: 'Updated user information' }
+			})
+	} else {
+		console.log('No user found! Cannot update information')
+		return {
+			code: 400,
+			message: 'No user found! Cannot update information',
+		}
+	}
+}
+
 export const updateUsersUsername = async (firebaseUser, newUsername) => {
 	const savedUserData = await userModel.find({ uid: firebaseUser.uid })
 	if (savedUserData[0]) {
 		userModel
-			.findOneAndUpdate({
-				username: newUsername,
-			})
+			.findOneAndUpdate(
+				{ uid: firebaseUser.uid },
+				{
+					username: newUsername,
+				}
+			)
 			.then(() => {
 				console.log('Updated user to new username')
 				return { code: 200, message: 'Updated user to new username' }

@@ -11,6 +11,9 @@ const schema = new mongoose.Schema(
 		email: String,
 		apiKey: String,
 		lastLoginAt: String,
+		isStaff: Boolean,
+		isHighStaff: Boolean,
+		title: Object,
 		balance: Number,
 	},
 	{ collection: collectionName }

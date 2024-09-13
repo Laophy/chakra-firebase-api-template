@@ -15,6 +15,11 @@ router.post('/getuser', async (req, res) => {
 	}
 })
 
+router.post('/getallusers', async (req, res) => {
+	let userData = await UserDB.findAllUsers()
+	res.json(userData)
+})
+
 router.post('/updateusername', async (req, res) => {
 	const firebaseAuthUser = req.body.params.user
 	const newUsername = req.body.params.username
@@ -24,6 +29,14 @@ router.post('/updateusername', async (req, res) => {
 		newUsername
 	)
 	res.json(tryUpdateUsername)
+})
+
+router.post('/updateuser', async (req, res) => {
+	const uid = req.body.params.uid
+	const newUserData = req.body.params.newUserData
+
+	const tryUpdateUserInformation = UserDB.updateUserData(uid, newUserData)
+	res.json(tryUpdateUserInformation)
 })
 
 export default router
