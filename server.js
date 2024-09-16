@@ -12,7 +12,7 @@ const app = express()
 dotenv.config()
 
 // Check NODE_ENV
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = process.env.NODE_ENV === 'prod'
 
 // Express Config Defaults
 app.use(cors())
@@ -29,7 +29,8 @@ const port = 8080
 const host = '0.0.0.0'
 
 // Initialize MongoDB Connection
-const mongoString = process.env.MONGO_CONNECTION_STRING
+const mongoString =
+	process.env.MONGO_CONNECTION_STRING + process.env.COLLECTION_PREFIX
 if (mongoString) {
 	mongoose.connect(mongoString, { ssl: true })
 	const db = mongoose.connection
