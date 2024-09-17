@@ -1,18 +1,28 @@
-const successResponse = {
-	status: 200,
-	message: 'success',
+const successResponse = errors => {
+	return {
+		status: 200,
+		message: 'success',
+		errors: errors,
+	}
 }
-const failedResponse = {
-	status: 400,
-	message: 'failure',
+const failedResponse = errors => {
+	return {
+		status: 400,
+		message: 'failure',
+		errors: errors,
+	}
 }
 
-export const handleResponse = (responseData, requestFailed = false) => {
+export const handleResponse = (
+	responseData,
+	requestFailed = false,
+	errors = []
+) => {
 	let response
 
 	if (requestFailed) {
 		response = {
-			request: failedResponse,
+			request: failedResponse(errors),
 			result: {
 				data: {
 					json: {},
@@ -21,7 +31,7 @@ export const handleResponse = (responseData, requestFailed = false) => {
 		}
 	} else {
 		response = {
-			request: successResponse,
+			request: successResponse(errors),
 			result: {
 				data: {
 					json: responseData,

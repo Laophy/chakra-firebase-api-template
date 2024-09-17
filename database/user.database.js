@@ -37,7 +37,9 @@ export const getUserByID = async firebaseUser => {
 		}
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true)
+		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true, [
+			e,
+		])
 	}
 }
 
@@ -76,7 +78,9 @@ export const addUserByAuth = async firebaseUser => {
 		return handleResponse(newUser)
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true)
+		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true, [
+			e,
+		])
 	}
 }
 
@@ -110,7 +114,9 @@ export const updateUserData = async (uid, newUserData) => {
 		})
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true)
+		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+			e,
+		])
 	}
 }
 
@@ -139,7 +145,9 @@ export const updateUsersUsername = async (firebaseAuthUser, newUsername) => {
 		})
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true)
+		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+			e,
+		])
 	}
 }
 
@@ -157,7 +165,9 @@ export const promotePlayerToStaff = async (
 		return handleResponse({ message: adminMessages.USER_PROMOTED_TO_STAFF })
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true)
+		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+			e,
+		])
 	}
 }
 
@@ -177,6 +187,8 @@ export const demotePlayerToStaff = async (
 		})
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true)
+		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+			e,
+		])
 	}
 }

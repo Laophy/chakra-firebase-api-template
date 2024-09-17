@@ -3,8 +3,8 @@ import mongoose from 'mongoose'
 const collectionName = 'users'
 const schema = new mongoose.Schema(
 	{
-		uid: String,
-		displayName: String,
+		uid: { type: String, required: true, unique: true },
+		displayName: { type: String, required: true, unique: true },
 		username: String,
 		createdAt: String,
 		photoURL: String,
