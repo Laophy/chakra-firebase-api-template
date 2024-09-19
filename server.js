@@ -5,11 +5,11 @@ import mongoose from 'mongoose'
 import morgan from 'morgan'
 import cors from 'cors'
 
-// Create App
-const app = express()
-
 // Initialize the environment
 dotenv.config()
+
+// Create App
+const app = express()
 
 // Check NODE_ENV
 const isProduction = process.env.NODE_ENV === 'prod'
