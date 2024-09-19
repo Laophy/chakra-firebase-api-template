@@ -95,6 +95,7 @@ export const updateUserData = async (uid, newUserData) => {
 					photoURL: newUserData.photoURL,
 					email: newUserData.email,
 					title: newUserData.title,
+					bio: newUserData.bio,
 					referralCode: newUserData.referralCode,
 					affiliate: newUserData.affiliate,
 					balance: newUserData.balance,
