@@ -54,6 +54,7 @@ export const addUserByAuth = async firebaseUser => {
 			email: firebaseUser.email,
 			apiKey: firebaseUser.apiKey,
 			lastLoginAt: firebaseUser.lastLoginAt,
+			bio: firebaseUser.bio ? firebaseUser.bio : '',
 			banned: {
 				isBanned: false,
 				unbanDate: '',

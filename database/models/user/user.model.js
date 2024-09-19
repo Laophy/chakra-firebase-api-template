@@ -11,6 +11,7 @@ const schema = new mongoose.Schema(
 		email: String,
 		apiKey: String,
 		lastLoginAt: String,
+		bio: String,
 		banned: {
 			isBanned: Boolean,
 			unbanDate: String,
