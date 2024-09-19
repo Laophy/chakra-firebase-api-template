@@ -50,7 +50,7 @@ export const addUserByAuth = async firebaseUser => {
 			displayName: firebaseUser.displayName,
 			username: firebaseUser.displayName,
 			createdAt: firebaseUser.createdAt,
-			photoURL: firebaseUser.photoURL,
+			photoURL: firebaseUser.photoURL ? firebaseUser.photoURL : '',
 			email: firebaseUser.email,
 			apiKey: firebaseUser.apiKey,
 			lastLoginAt: firebaseUser.lastLoginAt,
