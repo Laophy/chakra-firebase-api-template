@@ -6,6 +6,7 @@ import {
 import { handleResponse } from '../utils/responseHandler.js'
 import { userModel } from './models/user/user.model.js'
 import { logUserAction } from '../utils/logging/user/logUserAction.js'
+import { logAdminAction } from '../utils/logging/admin/logAdminAction.js'
 import { handleError } from '../utils/handleError.js'
 
 export const findAllUsers = async () => {
