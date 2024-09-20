@@ -15,7 +15,6 @@ export const logUserAction = async (
 			timestamp: new Date(),
 		}
 		await userActionModel.create(userAction)
-		console.log('saved a log')
 	} catch (e) {
 		console.error('Error logging user action:', e)
 	}

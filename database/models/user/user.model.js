@@ -55,7 +55,18 @@ const schema = new mongoose.Schema(
 			title: { type: String },
 			color: { type: String },
 		},
-		balance: { type: Number, default: 0 },
+		balance: {
+			type: Number,
+			required: true,
+			min: 0,
+			validate: {
+				validator: function (v) {
+					return typeof v === 'number' && !isNaN(v)
+				},
+				message: props => `${props.value} is not a valid number!`,
+			},
+			default: 0,
+		},
 	},
 	{
 		collection: collectionName,

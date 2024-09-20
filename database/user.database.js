@@ -6,19 +6,15 @@ import {
 import { handleResponse } from '../utils/responseHandler.js'
 import { userModel } from './models/user/user.model.js'
 import { logUserAction } from '../utils/logging/user/logUserAction.js'
-import { logAdminAction } from '../utils/logging/admin/logAdminAction.js'
+import { handleError } from '../utils/handleError.js'
 
 export const findAllUsers = async () => {
 	try {
 		const allUsers = await userModel.find({})
 		return handleResponse({ message: userMessages.SUCCESS, data: allUsers })
 	} catch (e) {
-		return handleResponse(
-			{
-				message: serverMessages.UNKNOWN_ERROR,
-			},
-			true
-		)
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -39,10 +35,8 @@ export const getUserByID = async firebaseUser => {
 			})
 		}
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -92,10 +86,8 @@ export const addUserByAuth = async firebaseUser => {
 			data: createdUser,
 		})
 	} catch (e) {
-		console.error('Error adding user:', e)
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -124,13 +116,23 @@ export const updateUserData = async (user, uid, newUserData) => {
 		// Filter out undefined values and create update object
 		const updateFields = Object.entries(newUserData).reduce(
 			(acc, [key, value]) => {
-				if (value !== undefined) {
+				if (value !== undefined && userToUpdate[key] !== value) {
 					acc[key] = value
 				}
 				return acc
 			},
 			{}
 		)
+
+		console.log(updateFields)
+
+		// Check if there are any changes
+		if (Object.keys(updateFields).length === 0) {
+			return handleResponse(
+				{ message: userMessages.NO_CHANGES_FOUND },
+				true
+			)
+		}
 
 		// Update user data
 		const updatedUser = await userModel.findOneAndUpdate(
@@ -163,17 +165,8 @@ export const updateUserData = async (user, uid, newUserData) => {
 			data: updatedUser,
 		})
 	} catch (e) {
-		console.error('Error updating user data:', e)
-		if (e.name === 'ValidationError') {
-			return handleResponse(
-				{ message: userMessages.INVALID_DATA },
-				true,
-				[e]
-			)
-		}
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -228,13 +221,8 @@ export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
 			data: { username, photoURL },
 		})
 	} catch (e) {
-		console.error('Error updating username:', e)
-		if (e.name === 'ValidationError') {
-			return handleResponse({ message: 'Invalid username' }, true, [e])
-		}
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -296,10 +284,8 @@ export const promotePlayerToStaff = async (
 
 		return handleResponse({ message: adminMessages.USER_PROMOTED_TO_STAFF })
 	} catch (e) {
-		console.error('Error promoting user to staff:', e)
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
@@ -363,9 +349,7 @@ export const demoteStaffToPlayer = async (
 			message: adminMessages.USER_DEMOTED_FROM_STAFF,
 		})
 	} catch (e) {
-		console.error('Error demoting staff to player:', e)
-		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
-			e,
-		])
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }

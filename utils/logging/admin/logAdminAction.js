@@ -15,7 +15,7 @@ export const logAdminAction = async (
 			timestamp: new Date(),
 		}
 		await adminActionModel.create(userAction)
-		console.log('saved a log')
+		console.warn('[WARN] Saved an admin action log')
 	} catch (e) {
 		console.error('Error logging user action:', e)
 	}

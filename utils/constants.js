@@ -1,5 +1,7 @@
 export const serverMessages = {
-	UNKNOWN_ERROR: 'An unknown erro occured.',
+	UNKNOWN_ERROR: 'An unknown error occured.',
+	INVALID_DATA: 'Bad data was retrieved.',
+	MONGO_ERROR: 'Failed to update the db.',
 }
 
 export const userMessages = {

@@ -27,8 +27,12 @@ const encrypt = text => {
 const handleRequest = async (req, res, callback) => {
 	try {
 		const result = await callback()
-		const encryptedResult = encrypt(JSON.stringify(result)) // Encrypt the result
-		res.json({ data: encryptedResult }) // Send encrypted data
+		if (result.result && result.result.data && result.result.data.json) {
+			result.result.data.json = encrypt(
+				JSON.stringify(result.result.data.json)
+			)
+		}
+		res.json(result)
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ message: 'Internal Server Error' })
