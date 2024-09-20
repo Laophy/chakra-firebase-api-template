@@ -4,9 +4,23 @@ import bodyParser from 'body-parser'
 import mongoose from 'mongoose'
 import morgan from 'morgan'
 import cors from 'cors'
+import helmet from 'helmet'
 
 // Initialize the environment
 dotenv.config()
+
+// Validate required environment variables
+const requiredEnvVars = [
+	'MONGO_CONNECTION_STRING',
+	'COLLECTION_PREFIX',
+	'NODE_ENV',
+]
+requiredEnvVars.forEach(varName => {
+	if (!process.env[varName]) {
+		console.error(`Error: Missing required environment variable ${varName}`)
+		process.exit(1)
+	}
+})
 
 // Create App
 const app = express()
@@ -19,29 +33,30 @@ app.use(cors())
 app.use(morgan('dev'))
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
+app.use(helmet())
 
 // Setup API routing
 import api from './routes/router.js'
 app.use('/api', api)
 
 // Find Port
-const port = 8080
-const host = '0.0.0.0'
+const port = process.env.PORT || 8080
+const host = process.env.HOST || '0.0.0.0'
 
 // Initialize MongoDB Connection
-const mongoString =
-	process.env.MONGO_CONNECTION_STRING + process.env.COLLECTION_PREFIX
-if (mongoString) {
-	mongoose.connect(mongoString, { ssl: true })
-	const db = mongoose.connection
-	db.once('connected', () => {
+const connectToMongoDB = async () => {
+	const mongoString =
+		process.env.MONGO_CONNECTION_STRING + process.env.COLLECTION_PREFIX
+	try {
+		await mongoose.connect(mongoString, { ssl: true })
 		console.log('Database Connected')
-	})
-} else {
-	console.log(
-		'Looks like you are missing a MongoDB connection string in your .env!'
-	)
+	} catch (error) {
+		console.error('Error connecting to MongoDB:', error)
+		process.exit(1)
+	}
 }
+
+connectToMongoDB()
 
 app.get('/health', async (req, res) => {
 	res.send({ message: 'Healthy!', status: 200 })

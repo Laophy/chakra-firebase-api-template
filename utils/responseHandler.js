@@ -1,43 +1,29 @@
-const successResponse = errors => {
-	return {
-		status: 200,
-		message: 'success',
-		errors: errors,
-	}
-}
-const failedResponse = errors => {
-	return {
-		status: 400,
-		message: 'failure',
-		errors: errors,
-	}
-}
+const createResponse = (status, message, errors) => ({
+	status,
+	message,
+	errors,
+})
+
+const successResponse = errors => createResponse(200, 'success', errors)
+const failedResponse = errors => createResponse(400, 'failure', errors)
 
 export const handleResponse = (
-	responseData,
+	responseData = {},
 	requestFailed = false,
 	errors = []
 ) => {
-	let response
+	const { message = '', ...data } = responseData
 
-	if (requestFailed) {
-		response = {
-			request: failedResponse(errors),
-			result: {
-				data: {
-					json: {},
-				},
+	const response = {
+		request: requestFailed
+			? failedResponse(errors)
+			: successResponse(errors),
+		message: !message && requestFailed ? 'failure' : message,
+		result: {
+			data: {
+				json: data.data,
 			},
-		}
-	} else {
-		response = {
-			request: successResponse(errors),
-			result: {
-				data: {
-					json: responseData,
-				},
-			},
-		}
+		},
 	}
 
 	return response

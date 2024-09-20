@@ -4,18 +4,18 @@ import {
 	userMessages,
 } from '../utils/constants.js'
 import { handleResponse } from '../utils/responseHandler.js'
-import { adminActionModel } from './models/admin/admin_action.model.js'
 import { userModel } from './models/user/user.model.js'
-import { userActionModel } from './models/user/user_action.model.js'
+import { logUserAction } from '../utils/logging/user/logUserAction.js'
+import { logAdminAction } from '../utils/logging/admin/logAdminAction.js'
 
 export const findAllUsers = async () => {
 	try {
 		const allUsers = await userModel.find({})
-		return handleResponse(allUsers)
+		return handleResponse({ message: userMessages.SUCCESS, data: allUsers })
 	} catch (e) {
 		return handleResponse(
 			{
-				message: serverMessages.UNKOWN_ERROR,
+				message: serverMessages.UNKNOWN_ERROR,
 			},
 			true
 		)
@@ -33,11 +33,14 @@ export const getUserByID = async firebaseUser => {
 				true
 			)
 		} else {
-			return handleResponse(locatedUser[0])
+			return handleResponse({
+				message: userMessages.SUCCESS,
+				data: locatedUser[0],
+			})
 		}
 	} catch (e) {
 		console.log(e.message)
-		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true, [
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
@@ -45,109 +48,191 @@ export const getUserByID = async firebaseUser => {
 
 export const addUserByAuth = async firebaseUser => {
 	try {
+		// Check if user already exists
+		const existingUser = await userModel.findOne({ uid: firebaseUser.uid })
+		if (existingUser) {
+			return handleResponse(
+				{ message: userMessages.USER_ALREADY_EXISTS },
+				true
+			)
+		}
+
+		// Extract only the properties provided by firebaseUser
 		const newUser = {
 			uid: firebaseUser.uid,
 			displayName: firebaseUser.displayName,
 			username: firebaseUser.displayName,
-			createdAt: firebaseUser.createdAt,
-			photoURL: firebaseUser.photoURL ? firebaseUser.photoURL : '',
 			email: firebaseUser.email,
-			apiKey: firebaseUser.apiKey,
+			createdAt: firebaseUser.createdAt,
 			lastLoginAt: firebaseUser.lastLoginAt,
-			bio: firebaseUser.bio ? firebaseUser.bio : '',
-			banned: {
-				isBanned: false,
-				unbanDate: '',
-				reaason: '',
-			},
-			isStaff: false,
-			isHighStaff: false,
-			referralCode: '',
-			affiliate: {
-				code: '',
-				users: 0,
-				totalDeposited: 0,
-				totalOpened: 0,
-				totalEarnings: 0,
-				unclaimedEarnings: 0,
-				lastChanged: '',
-			},
-			title: { title: '', color: '' },
-			balance: 0,
+			photoURL: firebaseUser.photoURL,
+			apiKey: firebaseUser.apiKey,
+			bio: firebaseUser.bio,
 		}
-		await userModel.create(newUser)
-		return handleResponse(newUser)
+
+		// Remove undefined properties
+		Object.keys(newUser).forEach(
+			key => newUser[key] === undefined && delete newUser[key]
+		)
+
+		// Set default values for required fields
+		newUser.photoURL = newUser.photoURL || ''
+		newUser.bio = newUser.bio || ''
+
+		const createdUser = await userModel.create(newUser)
+		if (!createdUser) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		return handleResponse({
+			message: userMessages.USER_CREATED,
+			data: createdUser,
+		})
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: serverMessages.UNKOWN_ERROR }, true, [
+		console.error('Error adding user:', e)
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
 }
 
-export const updateUserData = async (uid, newUserData) => {
+export const updateUserData = async (user, uid, newUserData) => {
 	try {
-		await userModel
-			.findOneAndUpdate(
-				{ uid },
+		// Check if the requesting user is staff or updating their own data
+		if (!user.isStaff && user.uid !== uid) {
+			return handleResponse(
 				{
-					username: newUserData.username,
-					photoURL: newUserData.photoURL,
-					email: newUserData.email,
-					title: newUserData.title,
-					bio: newUserData.bio,
-					referralCode: newUserData.referralCode,
-					affiliate: newUserData.affiliate,
-					balance: newUserData.balance,
-				}
+					message:
+						'Unauthorized: You can only update your own data or be a staff member',
+				},
+				true
 			)
-			.then(() => {
-				const action = {
-					uid,
-					action: 'Updated user information',
-					message: `Successfully updated user information.`,
-					status: 'Success',
-					timestamp: new Date(),
+		}
+
+		// Check if user to be updated exists
+		const userToUpdate = await userModel.findOne({ uid })
+		if (!userToUpdate) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		// Filter out undefined values and create update object
+		const updateFields = Object.entries(newUserData).reduce(
+			(acc, [key, value]) => {
+				if (value !== undefined) {
+					acc[key] = value
 				}
-				adminActionModel.create(action)
-			})
+				return acc
+			},
+			{}
+		)
+
+		// Update user data
+		const updatedUser = await userModel.findOneAndUpdate(
+			{ uid },
+			{ $set: updateFields },
+			{ new: true, runValidators: true }
+		)
+
+		if (!updatedUser) {
+			return handleResponse({ message: userMessages.UPDATE_FAILED }, true)
+		}
+
+		// Log action
+		if (user.isStaff && user.uid !== uid) {
+			await logAdminAction(
+				user.uid,
+				adminMessages.UPDATED_USER_PROFILE,
+				`Staff member ${user.uid} updated user ${uid}'s information.`
+			)
+		} else {
+			await logUserAction(
+				user.uid,
+				userMessages.USER_UPDATED,
+				`User ${user.uid} updated their own information.`
+			)
+		}
+
 		return handleResponse({
 			message: userMessages.USER_UPDATED,
+			data: updatedUser,
 		})
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+		console.error('Error updating user data:', e)
+		if (e.name === 'ValidationError') {
+			return handleResponse(
+				{ message: userMessages.INVALID_DATA },
+				true,
+				[e]
+			)
+		}
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
 }
 
-export const updateUsersUsername = async (firebaseAuthUser, newUsername) => {
+export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
 	try {
-		await userModel
-			.findOneAndUpdate(
-				{ uid: firebaseAuthUser.uid },
-				{
-					username: newUsername.username,
-					photoURL: newUsername.photoURL,
-				}
+		const { username, photoURL } = newUsernameAndPhotoURL
+
+		// Ensure the user can only update their own username
+		const userToUpdate = await userModel.findOne({ uid: authUser.uid })
+
+		if (!userToUpdate) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
 			)
-			.then(() => {
-				const userAction = {
-					uid: firebaseAuthUser.uid,
-					action: 'Updated user information',
-					message: `${firebaseAuthUser?.username} updated their username to ${newUsername?.username}`,
-					status: 'Success',
-					timestamp: new Date(),
-				}
-				userActionModel.create(userAction)
-			})
+		}
+
+		if (authUser.uid !== userToUpdate.uid) {
+			return handleResponse({ message: 'Unauthorized action' }, true)
+		}
+
+		// Check if there are any changes
+		if (
+			userToUpdate.username === username &&
+			userToUpdate.photoURL === photoURL
+		) {
+			return handleResponse(
+				{ message: userMessages.NO_CHANGES_FOUND },
+				true
+			)
+		}
+
+		const updatedUser = await userModel.findOneAndUpdate(
+			{ uid: authUser.uid },
+			{ username, photoURL },
+			{ new: true, runValidators: true }
+		)
+
+		if (!updatedUser) {
+			return handleResponse({ message: userMessages.UPDATE_FAILED }, true)
+		}
+
+		// Log user action
+		await logUserAction(
+			authUser.uid,
+			userMessages.USER_UPDATED,
+			`${authUser.username} updated their username to ${username} and photo to ${photoURL}`
+		)
+
 		return handleResponse({
 			message: userMessages.USER_UPDATED,
+			data: { username, photoURL },
 		})
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+		console.error('Error updating username:', e)
+		if (e.name === 'ValidationError') {
+			return handleResponse({ message: 'Invalid username' }, true, [e])
+		}
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
@@ -158,38 +243,128 @@ export const promotePlayerToStaff = async (
 	promotedPlayersUUID
 ) => {
 	try {
-		await userModel.findOneAndUpdate(
+		// Check if the user making the request exists and has the required permissions
+		const requestingUser = await userModel.findOne({
+			uid: firebaseAuthUser.uid,
+		})
+		if (!requestingUser) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+		if (!requestingUser.isStaff || !requestingUser.isHighStaff) {
+			return handleResponse(
+				{ message: userMessages.UNAUTHORIZED_ACTION },
+				true
+			)
+		}
+
+		// Find the user to be promoted
+		const userToPromote = await userModel.findOne({
+			uid: promotedPlayersUUID,
+		})
+
+		if (!userToPromote) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		// Check if the user is already staff
+		if (userToPromote.isStaff) {
+			return handleResponse(
+				{ message: adminMessages.USER_ALREADY_STAFF },
+				true
+			)
+		}
+
+		// Update the user to be promoted
+		const updatedUser = await userModel.findOneAndUpdate(
 			{ uid: promotedPlayersUUID },
-			{
-				isStaff: true,
-			}
+			{ isStaff: true },
+			{ new: true }
 		)
+
+		// Log the promotion action
+		await logAdminAction(
+			firebaseAuthUser.uid,
+			adminMessages.USER_PROMOTED_TO_STAFF,
+			`${requestingUser.username} promoted ${updatedUser.username} to staff`
+		)
+
 		return handleResponse({ message: adminMessages.USER_PROMOTED_TO_STAFF })
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+		console.error('Error promoting user to staff:', e)
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
 }
 
-export const demotePlayerToStaff = async (
+export const demoteStaffToPlayer = async (
 	firebaseAuthUser,
-	promotedPlayersUUID
+	demotedPlayersUUID
 ) => {
 	try {
-		await userModel.findOneAndUpdate(
-			{ uid: promotedPlayersUUID },
-			{
-				isStaff: false,
-			}
+		// Check if the user making the request exists and has the required permissions
+		const requestingUser = await userModel.findOne({
+			uid: firebaseAuthUser.uid,
+		})
+		if (!requestingUser) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+		if (!requestingUser.isStaff || !requestingUser.isHighStaff) {
+			return handleResponse(
+				{ message: userMessages.UNAUTHORIZED_ACTION },
+				true
+			)
+		}
+
+		// Find the user to be demoted
+		const userToDemote = await userModel.findOne({
+			uid: demotedPlayersUUID,
+		})
+
+		if (!userToDemote) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		// Check if the user is already not staff
+		if (!userToDemote.isStaff) {
+			return handleResponse(
+				{ message: adminMessages.USER_NOT_STAFF },
+				true
+			)
+		}
+
+		// Update the user to be demoted
+		const updatedUser = await userModel.findOneAndUpdate(
+			{ uid: demotedPlayersUUID },
+			{ isStaff: false },
+			{ new: true }
 		)
+
+		// Log the demotion action
+		await logAdminAction(
+			firebaseAuthUser.uid,
+			adminMessages.USER_DEMOTED_FROM_STAFF,
+			`${requestingUser.username} demoted ${updatedUser.username} from staff`
+		)
+
 		return handleResponse({
 			message: adminMessages.USER_DEMOTED_FROM_STAFF,
 		})
 	} catch (e) {
-		console.log(e.message)
-		return handleResponse({ message: userMessages.USER_NOT_FOUND }, true, [
+		console.error('Error demoting staff to player:', e)
+		return handleResponse({ message: serverMessages.UNKNOWN_ERROR }, true, [
 			e,
 		])
 	}
