@@ -2,7 +2,8 @@ import { Router } from 'express'
 import * as UserDB from '../../database/user.database.js'
 import fetch from 'node-fetch'
 import crypto from 'crypto' // Import crypto module
-
+import { authenticateFirebaseToken } from '../../logic/middleware/authenticateFirebaseToken.middleware.js'
+import { handleResponse } from '../../utils/responseHandler.js'
 const router = Router()
 
 const ENCRYPTION_KEY = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6' // Must be 256 bits (32 characters)
@@ -48,70 +49,131 @@ const validateParams = (params, requiredFields) => {
 	}
 }
 
-router.post('/user.getUser', async (req, res) => {
-	handleRequest(req, res, async () => {
-		const { user: firebaseAuthUser } = req.body.params
-		validateParams(req.body.params, ['user'])
+const decodeEndpoint = req => {
+	return Buffer.from(req.params.encodedEndpoint, 'base64').toString('utf-8')
+}
 
-		let getUserDataResponse = await UserDB.getUserByID(firebaseAuthUser)
-		if (getUserDataResponse.request.message === 'failure') {
-			console.log('Failed to get user, adding new user')
-			return await UserDB.addUserByAuth(firebaseAuthUser)
-		} else {
-			return getUserDataResponse
+router.post('/user.:encodedEndpoint', async (req, res, next) => {
+	const endpoint = decodeEndpoint(req)
+
+	switch (endpoint) {
+		case 'getUser':
+			handleRequest(req, res, async () => {
+				const { user } = req.body.params
+				validateParams(req.body.params, ['user'])
+
+				let getUserDataResponse = await UserDB.getUserByID(user)
+				if (getUserDataResponse.request.message === 'failure') {
+					console.log('User not found')
+					return handleResponse({ message: 'User not found' }, true)
+				} else {
+					return getUserDataResponse
+				}
+			})
+			break
+
+		case 'createUser':
+			handleRequest(req, res, async () => {
+				const { user } = req.body.params
+				validateParams(req.body.params, ['user'])
+
+				let getUserDataResponse = await UserDB.getUserByID(user)
+				if (
+					!getUserDataResponse ||
+					getUserDataResponse.request.message === 'failure'
+				) {
+					console.log('User not found, adding new user')
+					return await UserDB.addUserByAuth(user)
+				} else {
+					return getUserDataResponse
+				}
+			})
+			break
+
+		case 'getAllUsers':
+			handleRequest(req, res, async () => {
+				return await UserDB.getAllUsers()
+			})
+			break
+
+		default:
+			// Pass control to the next middleware (authenticated routes)
+			next()
+	}
+})
+
+router.post(
+	'/user.:encodedEndpoint',
+	authenticateFirebaseToken,
+	async (req, res) => {
+		const endpoint = decodeEndpoint(req)
+
+		switch (endpoint) {
+			case 'updateUsername':
+				handleRequest(req, res, async () => {
+					console.log('starting to update username')
+					const { newUsernameAndPhotoURL } = req.body.params
+					const authenticatedUserId = req.user.uid
+					validateParams(req.body.params, ['newUsernameAndPhotoURL'])
+
+					const result = await UserDB.updateUsersUsername(
+						authenticatedUserId,
+						newUsernameAndPhotoURL
+					)
+
+					return result
+				})
+				break
+
+			case 'promoteUser':
+				handleRequest(req, res, async () => {
+					const { promotedPlayersUUID } = req.body.params
+					const authenticatedUserId = req.user.uid
+					validateParams(req.body.params, ['promotedPlayersUUID'])
+
+					return await UserDB.promotePlayerToStaff(
+						authenticatedUserId,
+						promotedPlayersUUID
+					)
+				})
+				break
+
+			case 'demoteUser':
+				handleRequest(req, res, async () => {
+					const { demotedPlayersUUID } = req.body.params
+					const authenticatedUserId = req.user.uid
+					validateParams(req.body.params, ['demotedPlayersUUID'])
+
+					return await UserDB.demoteStaffToPlayer(
+						authenticatedUserId,
+						demotedPlayersUUID
+					)
+				})
+				break
+
+			case 'updateUser':
+				handleRequest(req, res, async () => {
+					const { user, uid, newUserData } = req.body.params
+					const authenticatedUserId = req.user.uid
+					validateParams(req.body.params, [
+						'user',
+						'uid',
+						'newUserData',
+					])
+
+					return await UserDB.updateUserData(
+						authenticatedUserId,
+						user,
+						uid,
+						newUserData
+					)
+				})
+				break
+
+			default:
+				return handleResponse({ message: 'Invalid endpoint' }, true)
 		}
-	})
-})
-
-router.post('/user.getAllUsers', async (req, res) => {
-	handleRequest(req, res, async () => {
-		return await UserDB.findAllUsers()
-	})
-})
-
-router.post('/user.updateUsername', async (req, res) => {
-	handleRequest(req, res, async () => {
-		const { user: firebaseAuthUser, username: newUsername } =
-			req.body.params
-		validateParams(req.body.params, ['user', 'username'])
-
-		return await UserDB.updateUsersUsername(firebaseAuthUser, newUsername)
-	})
-})
-
-router.post('/user.promoteUser', async (req, res) => {
-	handleRequest(req, res, async () => {
-		const { user: firebaseAuthUser, uid: promotedPlayersUUID } =
-			req.body.params
-		validateParams(req.body.params, ['user', 'uid'])
-
-		return await UserDB.promotePlayerToStaff(
-			firebaseAuthUser,
-			promotedPlayersUUID
-		)
-	})
-})
-
-router.post('/user.demoteUser', async (req, res) => {
-	handleRequest(req, res, async () => {
-		const { user: firebaseAuthUser, uid: demotedPlayersUUID } =
-			req.body.params
-		validateParams(req.body.params, ['user', 'uid'])
-
-		return await UserDB.demoteStaffToPlayer(
-			firebaseAuthUser,
-			demotedPlayersUUID
-		)
-	})
-})
-
-router.post('/user.updateUser', async (req, res) => {
-	handleRequest(req, res, async () => {
-		const { user, uid, newUserData } = req.body.params
-		validateParams(req.body.params, ['user', 'uid', 'newUserData'])
-
-		return await UserDB.updateUserData(user, uid, newUserData)
-	})
-})
+	}
+)
 
 export default router

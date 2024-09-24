@@ -26,34 +26,46 @@ const collectionName = 'users'
 const schema = new mongoose.Schema(
 	{
 		uid: { type: String, required: true, unique: true, index: true },
-		displayName: { type: String, required: true },
-		username: { type: String, required: true, unique: true, index: true },
+		displayName: { type: String, unique: false, default: '' },
+		username: { type: String, required: true, unique: false, default: '' },
 		createdAt: { type: Date, default: Date.now },
-		photoURL: { type: String, default: '' },
+		photoURL: {
+			type: String,
+			default: 'https://example.com/default-avatar.png',
+		},
 		email: { type: String, required: true, unique: true },
-		apiKey: { type: String, unique: true },
-		lastLoginAt: { type: Date },
-		bio: { type: String, maxlength: 500 },
+		apiKey: {
+			type: String,
+			unique: true,
+			default: () => crypto.randomUUID(),
+		},
+		lastLoginAt: { type: Date, default: null },
+		bio: { type: String, maxlength: 500, default: '' },
 		banned: {
 			isBanned: { type: Boolean, default: false },
-			unbanDate: { type: Date },
-			reason: { type: String },
+			unbanDate: { type: Date, default: null },
+			reason: { type: String, default: '' },
 		},
 		isStaff: { type: Boolean, default: false },
 		isHighStaff: { type: Boolean, default: false },
-		referralCode: { type: String, unique: true, sparse: true },
+		referralCode: {
+			type: String,
+			unique: true,
+			sparse: true,
+			default: null,
+		},
 		affiliate: {
-			code: { type: String, unique: true, sparse: true },
+			code: { type: String, unique: true, sparse: true, default: null },
 			users: { type: Number, default: 0 },
 			totalDeposited: { type: Number, default: 0 },
 			totalOpened: { type: Number, default: 0 },
 			totalEarnings: { type: Number, default: 0 },
 			unclaimedEarnings: { type: Number, default: 0 },
-			lastChanged: { type: Date },
+			lastChanged: { type: Date, default: null },
 		},
 		title: {
-			title: { type: String },
-			color: { type: String },
+			title: { type: String, default: '' },
+			color: { type: String, default: '' },
 		},
 		balance: {
 			type: Number,
@@ -70,12 +82,11 @@ const schema = new mongoose.Schema(
 	},
 	{
 		collection: collectionName,
-		timestamps: true,
 	}
 )
 
 // Index for faster queries on username, email, and uid
-schema.index({ username: 1, email: 1, uid: 1 })
+schema.index({ email: 1, uid: 1 })
 
 // This creates a compound index on the 'username', 'email', and 'uid' fields.
 // It improves query performance for operations that search or sort by these fields.

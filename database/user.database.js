@@ -8,10 +8,11 @@ import { userModel } from './models/user/user.model.js'
 import { logUserAction } from '../utils/logging/user/logUserAction.js'
 import { logAdminAction } from '../utils/logging/admin/logAdminAction.js'
 import { handleError } from '../utils/handleError.js'
+import { findAllUsers, findUserByUID } from '../logic/user/user.logic.js'
 
-export const findAllUsers = async () => {
+export const getAllUsers = async () => {
 	try {
-		const allUsers = await userModel.find({})
+		const allUsers = await findAllUsers()
 		return handleResponse({ message: userMessages.SUCCESS, data: allUsers })
 	} catch (e) {
 		const { errorMessage, errorDetails } = handleError(e)
@@ -21,8 +22,8 @@ export const findAllUsers = async () => {
 
 export const getUserByID = async firebaseUser => {
 	try {
-		const locatedUser = await userModel.find({ uid: firebaseUser.uid })
-		if (locatedUser.length < 1) {
+		const locatedUser = await findUserByUID(firebaseUser.uid)
+		if (!locatedUser) {
 			return handleResponse(
 				{
 					message: userMessages.USER_UPDATED,
@@ -32,7 +33,7 @@ export const getUserByID = async firebaseUser => {
 		} else {
 			return handleResponse({
 				message: userMessages.SUCCESS,
-				data: locatedUser[0],
+				data: locatedUser,
 			})
 		}
 	} catch (e) {
@@ -44,7 +45,7 @@ export const getUserByID = async firebaseUser => {
 export const addUserByAuth = async firebaseUser => {
 	try {
 		// Check if user already exists
-		const existingUser = await userModel.findOne({ uid: firebaseUser.uid })
+		const existingUser = await findUserByUID(firebaseUser.uid)
 		if (existingUser) {
 			return handleResponse(
 				{ message: userMessages.USER_ALREADY_EXISTS },
@@ -53,14 +54,31 @@ export const addUserByAuth = async firebaseUser => {
 		}
 
 		// Extract only the properties provided by firebaseUser
+		const generateRandomName = () => {
+			const adjectives = ['Epic', 'Legendary', 'Rare', 'Elite', 'Pro']
+			const nouns = ['Collector', 'Grinder', 'Nerd', 'Degen', 'Whale']
+			const randomAdjective =
+				adjectives[Math.floor(Math.random() * adjectives.length)]
+			const randomNoun = nouns[Math.floor(Math.random() * nouns.length)]
+			return `${randomAdjective}${randomNoun}${Math.floor(
+				Math.random() * 1000
+			)}`
+		}
+
+		const randomName = generateRandomName()
+		const generateRandomAvatar = () => {
+			const randomSeed = Math.floor(Math.random() * 1000)
+			return `https://robohash.org/${randomSeed}?size=200x200`
+		}
+
 		const newUser = {
 			uid: firebaseUser.uid,
-			displayName: firebaseUser.displayName,
-			username: firebaseUser.displayName,
+			displayName: firebaseUser.displayName || randomName,
+			username: firebaseUser.displayName || randomName,
 			email: firebaseUser.email,
 			createdAt: firebaseUser.createdAt,
 			lastLoginAt: firebaseUser.lastLoginAt,
-			photoURL: firebaseUser.photoURL,
+			photoURL: firebaseUser.photoURL || generateRandomAvatar(),
 			apiKey: firebaseUser.apiKey,
 			bio: firebaseUser.bio,
 		}
@@ -87,12 +105,18 @@ export const addUserByAuth = async firebaseUser => {
 			data: createdUser,
 		})
 	} catch (e) {
+		console.log(e)
 		const { errorMessage, errorDetails } = handleError(e)
 		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
-export const updateUserData = async (user, uid, newUserData) => {
+export const updateUserData = async (
+	authenticatedUserId,
+	user,
+	uid,
+	newUserData
+) => {
 	try {
 		// Check if the requesting user is staff or updating their own data
 		if (!user.isStaff && user.uid !== uid) {
@@ -106,7 +130,7 @@ export const updateUserData = async (user, uid, newUserData) => {
 		}
 
 		// Check if user to be updated exists
-		const userToUpdate = await userModel.findOne({ uid })
+		const userToUpdate = await findUserByUID(uid)
 		if (!userToUpdate) {
 			return handleResponse(
 				{ message: userMessages.USER_NOT_FOUND },
@@ -171,12 +195,15 @@ export const updateUserData = async (user, uid, newUserData) => {
 	}
 }
 
-export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
+export const updateUsersUsername = async (
+	authenticatedUserId,
+	newUsernameAndPhotoURL
+) => {
 	try {
-		const { username, photoURL } = newUsernameAndPhotoURL
+		const { username, photoURL, bio } = newUsernameAndPhotoURL
 
 		// Ensure the user can only update their own username
-		const userToUpdate = await userModel.findOne({ uid: authUser.uid })
+		const userToUpdate = await findUserByUID(authenticatedUserId)
 
 		if (!userToUpdate) {
 			return handleResponse(
@@ -185,14 +212,15 @@ export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
 			)
 		}
 
-		if (authUser.uid !== userToUpdate.uid) {
+		if (authenticatedUserId !== userToUpdate.uid) {
 			return handleResponse({ message: 'Unauthorized action' }, true)
 		}
 
 		// Check if there are any changes
 		if (
 			userToUpdate.username === username &&
-			userToUpdate.photoURL === photoURL
+			userToUpdate.photoURL === photoURL &&
+			userToUpdate.bio === bio
 		) {
 			return handleResponse(
 				{ message: userMessages.NO_CHANGES_FOUND },
@@ -201,8 +229,8 @@ export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
 		}
 
 		const updatedUser = await userModel.findOneAndUpdate(
-			{ uid: authUser.uid },
-			{ username, photoURL },
+			{ uid: authenticatedUserId },
+			{ username, photoURL, bio },
 			{ new: true, runValidators: true }
 		)
 
@@ -212,30 +240,29 @@ export const updateUsersUsername = async (authUser, newUsernameAndPhotoURL) => {
 
 		// Log user action
 		await logUserAction(
-			authUser.uid,
+			authenticatedUserId,
 			userMessages.USER_UPDATED,
-			`${authUser.username} updated their username to ${username} and photo to ${photoURL}`
+			`${userToUpdate.username} updated their profile information`
 		)
 
 		return handleResponse({
 			message: userMessages.USER_UPDATED,
-			data: { username, photoURL },
+			data: { username, photoURL, bio },
 		})
 	} catch (e) {
+		console.log(e)
 		const { errorMessage, errorDetails } = handleError(e)
 		return handleResponse({ message: errorMessage }, true, errorDetails)
 	}
 }
 
 export const promotePlayerToStaff = async (
-	firebaseAuthUser,
+	authenticatedUserId,
 	promotedPlayersUUID
 ) => {
 	try {
 		// Check if the user making the request exists and has the required permissions
-		const requestingUser = await userModel.findOne({
-			uid: firebaseAuthUser.uid,
-		})
+		const requestingUser = await findUserByUID(authenticatedUserId)
 		if (!requestingUser) {
 			return handleResponse(
 				{ message: userMessages.USER_NOT_FOUND },
@@ -250,9 +277,7 @@ export const promotePlayerToStaff = async (
 		}
 
 		// Find the user to be promoted
-		const userToPromote = await userModel.findOne({
-			uid: promotedPlayersUUID,
-		})
+		const userToPromote = await findUserByUID(promotedPlayersUUID)
 
 		if (!userToPromote) {
 			return handleResponse(
@@ -278,7 +303,7 @@ export const promotePlayerToStaff = async (
 
 		// Log the promotion action
 		await logAdminAction(
-			firebaseAuthUser.uid,
+			authenticatedUserId,
 			adminMessages.USER_PROMOTED_TO_STAFF,
 			`${requestingUser.username} promoted ${updatedUser.username} to staff`
 		)
@@ -291,21 +316,21 @@ export const promotePlayerToStaff = async (
 }
 
 export const demoteStaffToPlayer = async (
-	firebaseAuthUser,
+	authenticatedUserId,
 	demotedPlayersUUID
 ) => {
 	try {
 		// Check if the user making the request exists and has the required permissions
-		const requestingUser = await userModel.findOne({
-			uid: firebaseAuthUser.uid,
-		})
+		const requestingUser = await findUserByUID(authenticatedUserId)
+
 		if (!requestingUser) {
 			return handleResponse(
 				{ message: userMessages.USER_NOT_FOUND },
 				true
 			)
 		}
-		if (!requestingUser.isStaff || !requestingUser.isHighStaff) {
+
+		if (!requestingUser.isStaff && !requestingUser.isHighStaff) {
 			return handleResponse(
 				{ message: userMessages.UNAUTHORIZED_ACTION },
 				true
@@ -313,9 +338,7 @@ export const demoteStaffToPlayer = async (
 		}
 
 		// Find the user to be demoted
-		const userToDemote = await userModel.findOne({
-			uid: demotedPlayersUUID,
-		})
+		const userToDemote = await findUserByUID(demotedPlayersUUID)
 
 		if (!userToDemote) {
 			return handleResponse(
@@ -341,7 +364,7 @@ export const demoteStaffToPlayer = async (
 
 		// Log the demotion action
 		await logAdminAction(
-			firebaseAuthUser.uid,
+			authenticatedUserId,
 			adminMessages.USER_DEMOTED_FROM_STAFF,
 			`${requestingUser.username} demoted ${updatedUser.username} from staff`
 		)
