@@ -28,7 +28,6 @@ const schema = new mongoose.Schema(
 	},
 	{
 		collection: collectionName,
-		timestamps: true,
 	}
 )
 
