@@ -21,6 +21,27 @@ export const getAllUsers = async () => {
 	}
 }
 
+export const getAccount = async (email, uid) => {
+	try {
+		const user = await findUserByEmailOrUID(email, uid)
+		if (!user) {
+			return handleResponse(
+				{
+					message: userMessages.USER_NOT_FOUND,
+				},
+				true
+			)
+		}
+		return handleResponse({
+			message: userMessages.SUCCESS,
+			data: user,
+		})
+	} catch (e) {
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
+	}
+}
+
 export const getUserByID = async firebaseUser => {
 	try {
 		const locatedUser = await findUserByEmailOrUID(null, firebaseUser.uid)

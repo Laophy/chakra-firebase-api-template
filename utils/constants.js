@@ -1,5 +1,6 @@
 export const serverMessages = {
 	UNKNOWN_ERROR: 'An unknown error occured.',
+	INTERNAL_SERVER_ERROR: 'Internal server error.',
 	INVALID_DATA: 'Bad data was retrieved.',
 	MONGO_ERROR: 'Failed to update the db.',
 }

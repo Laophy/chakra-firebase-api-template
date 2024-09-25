@@ -10,11 +10,13 @@ router.use(helmet())
 
 // Router Imports
 import UserRoutes from './api/user.routes.js'
+import ProductRoutes from './api/product.routes.js'
 // ... import other routes ...
 
 // Router Utilizations
 router.use('/user', UserRoutes)
 // ... use other routes ...
+router.use('/product', ProductRoutes)
 
 // Error Handling Middleware
 router.use((err, req, res, next) => {
