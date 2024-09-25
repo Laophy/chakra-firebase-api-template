@@ -8,7 +8,8 @@ import { userModel } from './models/user/user.model.js'
 import { logUserAction } from '../utils/logging/user/logUserAction.js'
 import { logAdminAction } from '../utils/logging/admin/logAdminAction.js'
 import { handleError } from '../utils/handleError.js'
-import { findAllUsers, findUserByUID } from '../logic/user/user.logic.js'
+import { findAllUsers, findUserByEmailOrUID } from '../logic/user/user.logic.js'
+import admin from 'firebase-admin'
 
 export const getAllUsers = async () => {
 	try {
@@ -22,7 +23,7 @@ export const getAllUsers = async () => {
 
 export const getUserByID = async firebaseUser => {
 	try {
-		const locatedUser = await findUserByUID(firebaseUser.uid)
+		const locatedUser = await findUserByEmailOrUID(null, firebaseUser.uid)
 		if (!locatedUser) {
 			return handleResponse(
 				{
@@ -42,10 +43,36 @@ export const getUserByID = async firebaseUser => {
 	}
 }
 
+export const getUserByEmail = async firebaseUser => {
+	try {
+		const locatedUser = await findUserByEmailOrUID(firebaseUser.email, null)
+		if (!locatedUser) {
+			return handleResponse(
+				{
+					message: userMessages.USER_NOT_FOUND,
+				},
+				true
+			)
+		} else {
+			return handleResponse({
+				message: userMessages.SUCCESS,
+				data: locatedUser,
+			})
+		}
+	} catch (e) {
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
+	}
+}
+
 export const addUserByAuth = async firebaseUser => {
 	try {
 		// Check if user already exists
-		const existingUser = await findUserByUID(firebaseUser.uid)
+		const existingUser = await findUserByEmailOrUID(
+			firebaseUser.email,
+			firebaseUser.uid
+		)
+		console.log(existingUser)
 		if (existingUser) {
 			return handleResponse(
 				{ message: userMessages.USER_ALREADY_EXISTS },
@@ -88,14 +115,27 @@ export const addUserByAuth = async firebaseUser => {
 			key => newUser[key] === undefined && delete newUser[key]
 		)
 
+		console.log(newUser)
+
 		// Set default values for required fields
 		newUser.photoURL = newUser.photoURL || ''
 		newUser.bio = newUser.bio || ''
 
+		// Check for duplicate username
+		const existingUsername = await userModel.findOne({
+			username: newUser.username,
+		})
+		if (existingUsername) {
+			return handleResponse(
+				{ message: userMessages.USERNAME_ALREADY_EXISTS },
+				true
+			)
+		}
+
 		const createdUser = await userModel.create(newUser)
 		if (!createdUser) {
 			return handleResponse(
-				{ message: userMessages.USER_NOT_FOUND },
+				{ message: userMessages.USER_CREATION_FAILED },
 				true
 			)
 		}
@@ -130,7 +170,7 @@ export const updateUserData = async (
 		}
 
 		// Check if user to be updated exists
-		const userToUpdate = await findUserByUID(uid)
+		const userToUpdate = await findUserByEmailOrUID(null, uid)
 		if (!userToUpdate) {
 			return handleResponse(
 				{ message: userMessages.USER_NOT_FOUND },
@@ -203,7 +243,10 @@ export const updateUsersUsername = async (
 		const { username, photoURL, bio } = newUsernameAndPhotoURL
 
 		// Ensure the user can only update their own username
-		const userToUpdate = await findUserByUID(authenticatedUserId)
+		const userToUpdate = await findUserByEmailOrUID(
+			null,
+			authenticatedUserId
+		)
 
 		if (!userToUpdate) {
 			return handleResponse(
@@ -262,7 +305,10 @@ export const promotePlayerToStaff = async (
 ) => {
 	try {
 		// Check if the user making the request exists and has the required permissions
-		const requestingUser = await findUserByUID(authenticatedUserId)
+		const requestingUser = await findUserByEmailOrUID(
+			null,
+			authenticatedUserId
+		)
 		if (!requestingUser) {
 			return handleResponse(
 				{ message: userMessages.USER_NOT_FOUND },
@@ -277,7 +323,10 @@ export const promotePlayerToStaff = async (
 		}
 
 		// Find the user to be promoted
-		const userToPromote = await findUserByUID(promotedPlayersUUID)
+		const userToPromote = await findUserByEmailOrUID(
+			null,
+			promotedPlayersUUID
+		)
 
 		if (!userToPromote) {
 			return handleResponse(
@@ -321,7 +370,10 @@ export const demoteStaffToPlayer = async (
 ) => {
 	try {
 		// Check if the user making the request exists and has the required permissions
-		const requestingUser = await findUserByUID(authenticatedUserId)
+		const requestingUser = await findUserByEmailOrUID(
+			null,
+			authenticatedUserId
+		)
 
 		if (!requestingUser) {
 			return handleResponse(
@@ -338,7 +390,10 @@ export const demoteStaffToPlayer = async (
 		}
 
 		// Find the user to be demoted
-		const userToDemote = await findUserByUID(demotedPlayersUUID)
+		const userToDemote = await findUserByEmailOrUID(
+			null,
+			demotedPlayersUUID
+		)
 
 		if (!userToDemote) {
 			return handleResponse(
@@ -371,6 +426,64 @@ export const demoteStaffToPlayer = async (
 
 		return handleResponse({
 			message: adminMessages.USER_DEMOTED_FROM_STAFF,
+		})
+	} catch (e) {
+		const { errorMessage, errorDetails } = handleError(e)
+		return handleResponse({ message: errorMessage }, true, errorDetails)
+	}
+}
+
+export const deleteUser = async (authenticatedUserId, firebaseUser) => {
+	try {
+		// Find the authenticated user
+		const authenticatedUser = await findUserByEmailOrUID(
+			null,
+			authenticatedUserId
+		)
+
+		if (!authenticatedUser) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		// Check if the authenticated user is authorized to delete
+		if (
+			!authenticatedUser.isHighStaff &&
+			authenticatedUserId !== firebaseUser.uid
+		) {
+			return handleResponse(
+				{ message: userMessages.UNAUTHORIZED_ACTION },
+				true
+			)
+		}
+
+		// Delete the user from Firebase Authentication using Admin SDK
+		await admin.auth().deleteUser(firebaseUser.uid)
+
+		// Find and delete the user from the database by UID or email
+		const userToDelete = await userModel.findOneAndDelete({
+			$or: [{ uid: firebaseUser.uid }, { email: firebaseUser.email }],
+		})
+
+		if (!userToDelete) {
+			return handleResponse(
+				{ message: userMessages.USER_NOT_FOUND },
+				true
+			)
+		}
+
+		// Log the deletion action
+		await logAdminAction(
+			authenticatedUserId,
+			adminMessages.USER_DELETED,
+			`${authenticatedUser.username} deleted user ${userToDelete.username}`
+		)
+
+		return handleResponse({
+			message: userMessages.USER_DELETED,
+			data: userToDelete,
 		})
 	} catch (e) {
 		const { errorMessage, errorDetails } = handleError(e)

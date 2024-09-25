@@ -4,6 +4,7 @@ import fetch from 'node-fetch'
 import crypto from 'crypto' // Import crypto module
 import { authenticateFirebaseToken } from '../../logic/middleware/authenticateFirebaseToken.middleware.js'
 import { handleResponse } from '../../utils/responseHandler.js'
+import { findUserByEmailOrUID } from '../../logic/user/user.logic.js'
 const router = Router()
 
 const ENCRYPTION_KEY = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6' // Must be 256 bits (32 characters)
@@ -62,13 +63,15 @@ router.post('/user.:encodedEndpoint', async (req, res, next) => {
 				const { user } = req.body.params
 				validateParams(req.body.params, ['user'])
 
-				let getUserDataResponse = await UserDB.getUserByID(user)
-				if (getUserDataResponse.request.message === 'failure') {
-					console.log('User not found')
+				let getUserDataResponse = await findUserByEmailOrUID(
+					user.email,
+					user.uid
+				)
+				if (!getUserDataResponse) {
+					console.log('User not found by UID or email')
 					return handleResponse({ message: 'User not found' }, true)
-				} else {
-					return getUserDataResponse
 				}
+				return getUserDataResponse
 			})
 			break
 
@@ -77,7 +80,16 @@ router.post('/user.:encodedEndpoint', async (req, res, next) => {
 				const { user } = req.body.params
 				validateParams(req.body.params, ['user'])
 
-				let getUserDataResponse = await UserDB.getUserByID(user)
+				let getUserDataResponse
+
+				if (user.email) {
+					getUserDataResponse = await UserDB.getUserByEmail(user)
+				}
+
+				if (!getUserDataResponse && user.uid) {
+					getUserDataResponse = await UserDB.getUserByID(user)
+				}
+
 				if (
 					!getUserDataResponse ||
 					getUserDataResponse.request.message === 'failure'
@@ -166,6 +178,32 @@ router.post(
 						user,
 						uid,
 						newUserData
+					)
+				})
+				break
+
+			case 'deleteUser':
+				handleRequest(req, res, async () => {
+					const { user } = req.body.params
+					const authenticatedUserId = req.user.uid
+					validateParams(req.body.params, ['user'])
+
+					// Use the new function to delete the user
+					const deleteUserResponse = await UserDB.deleteUser(
+						authenticatedUserId,
+						user
+					)
+
+					if (deleteUserResponse.request.message === 'failure') {
+						return handleResponse(
+							{ message: 'User not found' },
+							true
+						)
+					}
+
+					return handleResponse(
+						{ message: 'User successfully deleted' },
+						false
 					)
 				})
 				break
