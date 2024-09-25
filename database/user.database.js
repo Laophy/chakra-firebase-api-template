@@ -113,22 +113,33 @@ export const addUserByAuth = async firebaseUser => {
 			)}`
 		}
 
-		const randomName = generateRandomName()
 		const generateRandomAvatar = () => {
 			const randomSeed = Math.floor(Math.random() * 1000)
 			return `https://robohash.org/${randomSeed}?size=200x200`
 		}
 
+		let randomName = generateRandomName()
+		let username = firebaseUser.displayName || randomName
+
 		const newUser = {
 			uid: firebaseUser.uid,
-			displayName: firebaseUser.displayName || randomName,
-			username: firebaseUser.displayName || randomName,
+			displayName: username,
+			username: username,
 			email: firebaseUser.email,
 			createdAt: firebaseUser.createdAt,
 			lastLoginAt: firebaseUser.lastLoginAt,
 			photoURL: firebaseUser.photoURL || generateRandomAvatar(),
 			apiKey: firebaseUser.apiKey,
-			bio: firebaseUser.bio,
+			bio: firebaseUser.bio || '',
+		}
+
+		// Check for duplicate username and generate a new one if needed
+		const existingUsername = await userModel.findOne({
+			username: newUser.username,
+		})
+
+		if (existingUsername) {
+			newUser.username = generateRandomName()
 		}
 
 		// Remove undefined properties
@@ -137,21 +148,6 @@ export const addUserByAuth = async firebaseUser => {
 		)
 
 		console.log(newUser)
-
-		// Set default values for required fields
-		newUser.photoURL = newUser.photoURL || ''
-		newUser.bio = newUser.bio || ''
-
-		// Check for duplicate username
-		const existingUsername = await userModel.findOne({
-			username: newUser.username,
-		})
-		if (existingUsername) {
-			return handleResponse(
-				{ message: userMessages.USERNAME_ALREADY_EXISTS },
-				true
-			)
-		}
 
 		const createdUser = await userModel.create(newUser)
 		if (!createdUser) {
