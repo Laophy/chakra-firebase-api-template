@@ -1,8 +1,10 @@
 export const serverMessages = {
+	SUCCESS: 'Operation completed successfully.',
 	UNKNOWN_ERROR: 'An unknown error occured.',
 	INTERNAL_SERVER_ERROR: 'Internal server error.',
 	INVALID_DATA: 'Bad data was retrieved.',
 	MONGO_ERROR: 'Failed to update the db.',
+	UNAUTHORIZED: 'Unauthorized request.',
 }
 
 export const userMessages = {
@@ -24,4 +26,15 @@ export const adminMessages = {
 	USER_ALREADY_STAFF: 'User is already staff.',
 	USER_NOT_STAFF: 'User is not currently staff.',
 	UPDATED_USER_PROFILE: 'Updated user information.',
+}
+
+export const productMessages = {
+	PRODUCT_DELETED: 'Product successfully deleted.',
+	PRODUCT_CREATED: 'Product successfully created.',
+	PRODUCT_UPDATED: 'Product successfully updated.',
+	PRODUCT_NOT_FOUND: 'Product could not be found.',
+	PRODUCT_CREATION_FAILED: 'Product could not be created.',
+	PRODUCT_UPDATE_FAILED: 'Product could not be updated.',
+	INVALID_PRICE: 'Price must be a positive number (greater than 0)',
+	INVALID_NAME_AND_PRICE: 'Name and price are required',
 }

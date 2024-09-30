@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { referralModel } from './referral.model.js'
 
 const collectionName = 'users'
 /**
@@ -7,27 +8,27 @@ const collectionName = 'users'
  *
  * Fields:
  * - uid: Unique identifier for the user (required, unique, indexed)
- * - displayName: User's display name (required)
- * - username: User's unique username (required, unique, indexed)
+ * - displayName: User's display name (optional, default: empty string)
+ * - username: User's unique username (optional, default: empty string)
  * - createdAt: Timestamp of user creation (default: current date)
- * - photoURL: URL to user's profile photo
+ * - photoURL: URL to user's profile photo (default: example URL)
  * - email: User's email address (required, unique)
- * - apiKey: Unique API key for the user
- * - lastLoginAt: Timestamp of user's last login
- * - bio: User's biography (max 500 characters)
+ * - apiKey: Unique API key for the user (default: generated UUID)
+ * - lastLoginAt: Timestamp of user's last login (default: null)
+ * - bio: User's biography (optional, max 500 characters, default: empty string)
  * - banned: Object containing ban information (isBanned, unbanDate, reason)
- * - isStaff: Boolean indicating if user is staff
- * - isHighStaff: Boolean indicating if user is high-level staff
- * - referralCode: User's unique referral code
- * - affiliate: Object containing affiliate information
- * - title: Object containing user's title and color
- * - balance: User's account balance
+ * - isStaff: Boolean indicating if user is staff (default: false)
+ * - isHighStaff: Boolean indicating if user is high-level staff (default: false)
+ * - referralCode: User's unique referral code (optional, default: null)
+ * - affiliate: Object containing affiliate information (default: created referral ID)
+ * - title: Object containing user's title and color (optional, default: empty strings)
+ * - balance: User's account balance (required, min: 0)
  */
 const schema = new mongoose.Schema(
 	{
 		uid: { type: String, required: true, unique: true, index: true },
 		displayName: { type: String, unique: false, default: '' },
-		username: { type: String, required: true, unique: false, default: '' },
+		username: { type: String, unique: false, default: '' },
 		createdAt: { type: Date, default: Date.now },
 		photoURL: {
 			type: String,
@@ -42,9 +43,9 @@ const schema = new mongoose.Schema(
 		lastLoginAt: { type: Date, default: null },
 		bio: { type: String, maxlength: 500, default: '' },
 		banned: {
-			isBanned: { type: Boolean, default: false },
-			unbanDate: { type: Date, default: null },
-			reason: { type: String, default: '' },
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'banned_users',
+			default: null,
 		},
 		isStaff: { type: Boolean, default: false },
 		isHighStaff: { type: Boolean, default: false },
@@ -55,13 +56,9 @@ const schema = new mongoose.Schema(
 			default: null,
 		},
 		affiliate: {
-			code: { type: String, unique: true, sparse: true, default: null },
-			users: { type: Number, default: 0 },
-			totalDeposited: { type: Number, default: 0 },
-			totalOpened: { type: Number, default: 0 },
-			totalEarnings: { type: Number, default: 0 },
-			unclaimedEarnings: { type: Number, default: 0 },
-			lastChanged: { type: Date, default: null },
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'referrals',
+			default: null,
 		},
 		title: {
 			title: { type: String, default: '' },
@@ -79,17 +76,24 @@ const schema = new mongoose.Schema(
 			},
 			default: 0,
 		},
+		inventory: [
+			{
+				productId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: 'products',
+					required: true,
+				},
+				quantity: { type: Number, required: true, min: 0 },
+				acquiredAt: { type: Date, default: Date.now }, // Optional: track when the user acquired the item
+			},
+		],
 	},
 	{
 		collection: collectionName,
 	}
 )
 
-// Index for faster queries on username, email, and uid
+// Index for faster queries on email and uid
 schema.index({ email: 1, uid: 1 })
-
-// This creates a compound index on the 'username', 'email', and 'uid' fields.
-// It improves query performance for operations that search or sort by these fields.
-// The '1' indicates an ascending order index for all fields.
 
 export const userModel = mongoose.model(collectionName, schema)

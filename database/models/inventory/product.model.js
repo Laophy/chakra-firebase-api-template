@@ -4,18 +4,31 @@ const collectionName = 'products'
 
 const productSchema = new mongoose.Schema(
 	{
-		productId: { type: String, required: true, unique: true, index: true },
-		name: { type: String, required: true },
-		description: { type: String },
-		price: { type: Number, required: true },
-		category: { type: String },
+		productId: {
+			type: String,
+			unique: true,
+			required: true,
+		},
+		visibility: { type: String, default: 'private' },
+		name: { type: String, required: true, default: '' },
+		description: { type: String, default: '' },
+		price: {
+			type: Number,
+			required: true,
+			validate: {
+				validator: function (value) {
+					return value > 0
+				},
+				message: 'Price must be a positive number (greater than 0)',
+			},
+		},
+		category: { type: String, default: 'Uncategorized' },
 		imageUrl: { type: String }, // URL for the product image
 		attributes: {
 			rarity: {
 				type: String,
 				enum: ['common', 'uncommon', 'rare', 'legendary'],
-			}, // Example of special attributes
-			specialEdition: { type: Boolean, default: false },
+			},
 		},
 	},
 	{ timestamps: true }

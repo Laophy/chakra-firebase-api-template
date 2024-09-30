@@ -16,12 +16,12 @@ const referralSchema = new mongoose.Schema(
 	{
 		userId: {
 			type: mongoose.Schema.Types.ObjectId,
-			ref: 'User',
+			ref: 'users',
 			required: true,
 		},
-		referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+		referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'users' },
 		referralCode: referralCodeSchema,
-		referrals: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+		referrals: [{ type: mongoose.Schema.Types.ObjectId, ref: 'users' }],
 	},
 	{
 		collection: collectionName,

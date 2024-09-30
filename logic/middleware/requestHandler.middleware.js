@@ -12,7 +12,7 @@ const handleRequest = async (req, res, callback) => {
 			)
 			res.json(
 				handleResponse({
-					message: userMessages.SUCCESS,
+					message: serverMessages.SUCCESS,
 					data: result.result.data.json || {},
 				})
 			)
@@ -42,4 +42,13 @@ const validateParams = (params, requiredFields) => {
 	}
 }
 
-export { handleRequest, validateParams }
+// Helper function for validating request body
+const validateRequestBody = (body, requiredFields) => {
+	for (const field of requiredFields) {
+		if (!body[field]) {
+			throw new Error(`Missing required field: ${field}`)
+		}
+	}
+}
+
+export { handleRequest, validateParams, validateRequestBody }
