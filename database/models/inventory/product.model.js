@@ -30,6 +30,8 @@ const productSchema = new mongoose.Schema(
 				enum: ['common', 'uncommon', 'rare', 'legendary'],
 			},
 		},
+		canBeShipped: { type: Boolean, default: false },
+		purchaseUrl: { type: String, default: '' },
 	},
 	{ timestamps: true }
 )

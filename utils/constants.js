@@ -37,4 +37,5 @@ export const productMessages = {
 	PRODUCT_UPDATE_FAILED: 'Product could not be updated.',
 	INVALID_PRICE: 'Price must be a positive number (greater than 0)',
 	INVALID_NAME_AND_PRICE: 'Name and price are required',
+	INVALID_VISIBILITY: 'Visibility must be either "private" or "public"',
 }

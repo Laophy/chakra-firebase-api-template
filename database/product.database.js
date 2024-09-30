@@ -43,18 +43,21 @@ export const getProductById = async productId => {
 	}
 }
 
-export const createProduct = async (
-	authenticatedUserId,
-	visibility,
-	productId,
-	name,
-	description,
-	price,
-	attributes,
-	category,
-	imageUrl
-) => {
+export const createProduct = async (authenticatedUserId, product) => {
 	try {
+		const {
+			visibility,
+			productId,
+			name,
+			description,
+			price,
+			attributes,
+			category,
+			imageUrl,
+			canBeShipped,
+			purchaseUrl,
+		} = product
+
 		// Check if the authenticated user is a staff member
 		const user = await findUserByUID(authenticatedUserId)
 		if (!user || !user.isStaff) {
@@ -72,9 +75,19 @@ export const createProduct = async (
 			)
 		}
 
-		if (typeof price !== 'number' || price <= 0) {
+		// Validate the price
+		const parsedPrice = Number(price)
+		if (isNaN(parsedPrice) || parsedPrice <= 0) {
 			return handleResponse(
 				{ message: productMessages.INVALID_PRICE },
+				true
+			)
+		}
+
+		// Validate the visibility
+		if (visibility !== 'private' && visibility !== 'public') {
+			return handleResponse(
+				{ message: productMessages.INVALID_VISIBILITY },
 				true
 			)
 		}
@@ -92,6 +105,8 @@ export const createProduct = async (
 			imageUrl:
 				imageUrl ||
 				'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Product_sample_icon_picture.png/640px-Product_sample_icon_picture.png',
+			canBeShipped: canBeShipped || false,
+			purchaseUrl: purchaseUrl || '',
 		})
 
 		// Save the product to the database
@@ -112,18 +127,21 @@ export const createProduct = async (
 	}
 }
 
-export const updateProduct = async (
-	authenticatedUserId,
-	productId,
-	visibility,
-	name,
-	description,
-	price,
-	attributes,
-	category,
-	imageUrl
-) => {
+export const updateProduct = async (authenticatedUserId, product) => {
 	try {
+		const {
+			visibility,
+			productId,
+			name,
+			description,
+			price,
+			attributes,
+			category,
+			imageUrl,
+			canBeShipped,
+			purchaseUrl,
+		} = product
+
 		// Check if the authenticated user is a staff member
 		const user = await findUserByUID(authenticatedUserId)
 		if (!user || !user.isStaff) {
@@ -136,7 +154,7 @@ export const updateProduct = async (
 		// Basic validation checks
 		if (!name || !price) {
 			return handleResponse(
-				{ message: 'Name and price are required' },
+				{ message: productMessages.INVALID_NAME_AND_PRICE },
 				true
 			)
 		}
@@ -145,7 +163,15 @@ export const updateProduct = async (
 		const parsedPrice = Number(price)
 		if (isNaN(parsedPrice) || parsedPrice <= 0) {
 			return handleResponse(
-				{ message: 'Price must be a positive number (more than 0)' },
+				{ message: productMessages.INVALID_PRICE },
+				true
+			)
+		}
+
+		// Validate the visibility
+		if (visibility !== 'private' && visibility !== 'public') {
+			return handleResponse(
+				{ message: productMessages.INVALID_VISIBILITY },
 				true
 			)
 		}
@@ -161,6 +187,8 @@ export const updateProduct = async (
 				category,
 				imageUrl,
 				attributes,
+				canBeShipped,
+				purchaseUrl,
 			},
 			{ new: true, runValidators: true } // Return the updated product and validate data
 		)
@@ -200,7 +228,9 @@ export const deleteProduct = async (authenticatedUserId, productId) => {
 		}
 
 		// Find the product by ID and delete it
-		const deletedProduct = await productModel.findByIdAndDelete(productId)
+		const deletedProduct = await productModel.findOneAndDelete({
+			productId,
+		})
 
 		if (!deletedProduct) {
 			return handleResponse(
