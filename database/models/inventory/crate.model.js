@@ -1,10 +1,10 @@
 import mongoose from 'mongoose'
 
-const collectionName = 'products'
+const collectionName = 'crates'
 
-const productSchema = new mongoose.Schema(
+const crateSchema = new mongoose.Schema(
 	{
-		productId: {
+		crateId: {
 			type: String,
 			unique: true,
 			required: true,
@@ -23,17 +23,18 @@ const productSchema = new mongoose.Schema(
 			},
 		},
 		category: { type: String, default: 'Uncategorized' },
-		imageUrl: { type: String }, // URL for the product image
-		attributes: {
-			rarity: {
-				type: String,
-				enum: ['none', 'common', 'uncommon', 'rare', 'legendary'],
-			},
+		imageUrl: {
+			type: String,
+			default: 'https://example.com/default-image.png',
 		},
-		canBeShipped: { type: Boolean, default: false },
-		purchaseUrl: { type: String, default: '' },
+		products: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: 'products',
+			},
+		],
 	},
 	{ timestamps: true }
 )
 
-export const productModel = mongoose.model(collectionName, productSchema)
+export const crateModel = mongoose.model(collectionName, crateSchema)
