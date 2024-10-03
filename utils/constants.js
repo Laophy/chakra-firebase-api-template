@@ -39,3 +39,16 @@ export const productMessages = {
 	INVALID_NAME_AND_PRICE: 'Name and price are required',
 	INVALID_VISIBILITY: 'Visibility must be either "private" or "public"',
 }
+
+export const crateMessages = {
+	CRATE_CREATED: 'Crate successfully created.',
+	CRATE_UPDATED: 'Crate successfully updated.',
+	CRATE_DELETED: 'Crate successfully deleted.',
+	CRATE_NOT_FOUND: 'Crate could not be found.',
+	CRATE_ALREADY_EXISTS: 'Crate already exists.',
+	CRATE_CREATION_FAILED: 'Crate could not be created.',
+	CRATE_UPDATE_FAILED: 'Crate could not be updated.',
+	INVALID_PRICE: 'Price must be a positive number (greater than 0)',
+	INVALID_NAME_AND_PRICE: 'Name and price are required',
+	INVALID_VISIBILITY: 'Visibility must be either "private" or "public"',
+}
